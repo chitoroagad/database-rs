@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "database-rs"
 version = "0.1.0"
+dependencies = [
+ "rng",
+]
+
+[[package]]
+name = "rng"
+version = "0.1.0"
