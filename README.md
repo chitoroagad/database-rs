@@ -2,4 +2,4 @@
 
 Database written purely in Rust, using no crates.
 
-Mostly written as a learning exercise.
+Written as a learning exercise for me.

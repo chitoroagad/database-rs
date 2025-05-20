@@ -22,7 +22,7 @@
         overlays = [(import rust-overlay)];
         pkgs = import nixpkgs {inherit system overlays;};
         rustVersion = {
-          dev = pkgs.rust-bin.stable.latest.default.override {extensions = ["rust-analyzer"];};
+          dev = pkgs.rust-bin.stable.latest.default.override {extensions = ["rust-analyzer" "rust-src"];};
           build = pkgs.rust-bin.stable.latest.minimal;
         };
         rustPlatform = pkgs.makeRustPlatform {
