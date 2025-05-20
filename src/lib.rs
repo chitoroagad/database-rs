@@ -1,6 +1,5 @@
 use rng::Rand;
 use std::{
-    env::temp_dir,
     ffi::OsString,
     fs::{self, OpenOptions},
     io::{self, ErrorKind, Write},
@@ -8,6 +7,48 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+/// Saves `data` atomically to file at `path`
+/// Atomically writes the given data to the specified file path.
+///
+/// This function writes `data` to a temporary file in the same location as `path`,
+/// then atomically renames it to `path` to avoid partial writes. The temporary
+/// file is uniquely named using a timestamp-based random number to avoid collisions.
+///
+/// # Arguments
+///
+/// - `path` - The final destination file path.
+/// - `data` - A byte slice containing the data to be written.
+///
+/// # Returns
+///
+/// - `Ok(())` on success.
+/// - `Err(io::Error)` if there is a problem writing, syncing, renaming the file,
+///   or generating the temporary file.
+///
+/// # Errors
+///
+/// This function may return an error in the following cases:
+/// - The provided path is invalid or not found.
+/// - The file already exists and `create_new(true)` fails.
+/// - There are insufficient permissions to write to the path.
+/// - There is an I/O error during writing, syncing, or renaming.
+///
+/// # Notes
+///
+/// - The temporary file is created with `0o664` permissions.
+/// - Uses `fs::rename` for atomic replacement.
+/// - May log certain system errors to stderr.
+///
+/// # Example
+///
+/// ```no_run
+/// use std::path::PathBuf;
+/// use database_rs::save_data;
+///
+/// let path = PathBuf::from("/tmp/mydata.txt");
+/// let data = b"important information";
+/// save_data(path, data);
+/// ```
 pub fn save_data(path: std::path::PathBuf, data: &[u8]) -> Result<(), io::Error> {
     let mut rng = match SystemTime::now().duration_since(UNIX_EPOCH) {
         Err(e) => {
@@ -42,19 +83,31 @@ pub fn save_data(path: std::path::PathBuf, data: &[u8]) -> Result<(), io::Error>
     };
 
     file.write_all(data)?; // Save to temporary file
-
     file.sync_all()?; // fsync syscall
-
-    fs::rename(tmp_path, path)?; // `mv tmp path`
-
+    fs::rename(&tmp_path, path)?; // `mv tmp path`
     drop(file);
-
-    fs::remove_file(temp_dir())?; // `rm tmp`
-
+    let _ = fs::remove_file(tmp_path); // `rm tmp` if it still exists
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-}
+    use super::*;
+    use std::{io::Read, path::PathBuf};
 
+    #[test]
+    fn save_data_success() {
+        let file_path = PathBuf::from("/tmp/rust_test");
+        let data = b"Hello, world!";
+
+        let result = save_data(file_path.clone(), data);
+
+        assert!(result.is_ok());
+
+        let mut contents = Vec::new();
+        let mut file = fs::File::open(file_path).expect("Failed to open written file");
+        file.read_to_end(&mut contents)
+            .expect("Failed to read file");
+        assert_eq!(contents, data);
+    }
+}
